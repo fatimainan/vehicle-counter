@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vehicle Counting System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/style.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">
+                <i class="fas fa-car"></i> Vehicle Counting System
+            </span>
+            <span class="navbar-text" id="status-indicator">
+                <span class="badge bg-secondary">Idle</span>
+            </span>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <!-- Control Panel -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-cog"></i> Control Panel</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Start/Stop Controls -->
+                        <div class="mb-3">
+                            <button id="start-btn" class="btn btn-success me-2">
+                                <i class="fas fa-play"></i> Start System
+                            </button>
+                            <button id="stop-btn" class="btn btn-danger" disabled>
+                                <i class="fas fa-stop"></i> Stop System
+                            </button>
+                        </div>
+
+                        <!-- Configuration Form -->
+                        <form id="config-form">
+                            <div class="mb-3">
+                                <label for="video-source" class="form-label">Video Source</label>
+                                <select class="form-select" id="video-source">
+                                    <option value="0">Webcam (Device 0)</option>
+                                    <option value="traffic.mp4">Traffic Video File</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="show-gui" checked>
+                                    <label class="form-check-label" for="show-gui">
+                                        Show GUI Display
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="save-output" checked>
+                                    <label class="form-check-label" for="save-output">
+                                        Save Output Video
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="min-area" class="form-label">Min Detection Area</label>
+                                <input type="number" class="form-control" id="min-area" value="1000" min="100" max="10000">
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="counting-line" class="form-label">Counting Line Position (%)</label>
+                                <input type="range" class="form-range" id="counting-line" min="0.1" max="0.9" step="0.1" value="0.6">
+                                <div class="form-text">Current: <span id="line-position-text">60%</span></div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Update Config
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status and Results -->
+            <div class="col-md-8">
+                <div class="row">
+                    <!-- Current Status -->
+                    <div class="col-12 mb-3">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="fas fa-info-circle"></i> System Status</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <div class="stat-card">
+                                            <div class="stat-number" id="vehicles-counted">0</div>
+                                            <div class="stat-label">Vehicles Counted</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="stat-card">
+                                            <div class="stat-number" id="frames-processed">0</div>
+                                            <div class="stat-label">Frames Processed</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="stat-card">
+                                            <div class="stat-number" id="current-fps">0.0</div>
+                                            <div class="stat-label">Current FPS</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="stat-card">
+                                            <div class="stat-number" id="active-trackers">0</div>
+                                            <div class="stat-label">Active Trackers</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- System Configuration Display -->
+                    <div class="col-12 mb-3">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="fas fa-sliders-h"></i> Current Configuration</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row" id="config-display">
+                                    <!-- Configuration will be populated by JavaScript -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- System Logs -->
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="fas fa-terminal"></i> System Logs</h5>
+                                <button class="btn btn-sm btn-outline-secondary float-end" id="clear-logs">
+                                    <i class="fas fa-trash"></i> Clear
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                <div id="system-logs" class="log-container">
+                                    <div class="log-entry">System ready. Configure settings and click Start to begin.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Global variables
+        let statusInterval = null;
+        let systemRunning = false;
+
+        // DOM elements
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const statusIndicator = document.getElementById('status-indicator');
+        const configForm = document.getElementById('config-form');
+        const logsContainer = document.getElementById('system-logs');
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            updateStatus();
+            loadConfiguration();
+            startStatusPolling();
+            
+            // Event listeners
+            startBtn.addEventListener('click', startSystem);
+            stopBtn.addEventListener('click', stopSystem);
+            configForm.addEventListener('submit', updateConfiguration);
+            document.getElementById('clear-logs').addEventListener('click', clearLogs);
+            document.getElementById('counting-line').addEventListener('input', updateLinePositionText);
+        });
+
+        // Start status polling
+        function startStatusPolling() {
+            statusInterval = setInterval(updateStatus, 1000);
+        }
+
+        // Update system status
+        async function updateStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                
+                systemRunning = data.running;
+                
+                // Update UI based on status
+                if (systemRunning) {
+                    statusIndicator.innerHTML = '<span class="badge bg-success">Running</span>';
+                    startBtn.disabled = true;
+                    stopBtn.disabled = false;
+                } else {
+                    statusIndicator.innerHTML = '<span class="badge bg-secondary">Idle</span>';
+                    startBtn.disabled = false;
+                    stopBtn.disabled = true;
+                }
+                
+                // Update statistics if available
+                if (data.results && data.results.data) {
+                    const results = data.results.data;
+                    document.getElementById('vehicles-counted').textContent = results.vehicles_counted || 0;
+                    document.getElementById('frames-processed').textContent = results.total_frames_processed || 0;
+                    document.getElementById('current-fps').textContent = (results.average_fps || 0).toFixed(1);
+                }
+                
+                // Update configuration display
+                if (data.config) {
+                    updateConfigDisplay(data.config);
+                }
+                
+            } catch (error) {
+                addLogEntry('Error updating status: ' + error.message, 'error');
+            }
+        }
+
+        // Start the system
+        async function startSystem() {
+            try {
+                const config = getFormConfiguration();
+                
+                const response = await fetch('/api/start', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    addLogEntry('System started successfully', 'success');
+                } else {
+                    addLogEntry('Failed to start system: ' + result.message, 'error');
+                }
+                
+            } catch (error) {
+                addLogEntry('Error starting system: ' + error.message, 'error');
+            }
+        }
+
+        // Stop the system
+        async function stopSystem() {
+            try {
+                const response = await fetch('/api/stop', {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    addLogEntry('Stop signal sent', 'info');
+                } else {
+                    addLogEntry('Failed to stop system: ' + result.message, 'error');
+                }
+                
+            } catch (error) {
+                addLogEntry('Error stopping system: ' + error.message, 'error');
+            }
+        }
+
+        // Update configuration
+        async function updateConfiguration(event) {
+            event.preventDefault();
+            
+            try {
+                const config = getFormConfiguration();
+                
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    addLogEntry('Configuration updated successfully', 'success');
+                } else {
+                    addLogEntry('Failed to update configuration: ' + result.message, 'error');
+                }
+                
+            } catch (error) {
+                addLogEntry('Error updating configuration: ' + error.message, 'error');
+            }
+        }
+
+        // Load current configuration
+        async function loadConfiguration() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                
+                // Populate form with current configuration
+                document.getElementById('video-source').value = config.video_source;
+                document.getElementById('show-gui').checked = config.show_gui;
+                document.getElementById('save-output').checked = config.save_output;
+                document.getElementById('min-area').value = config.min_contour_area;
+                document.getElementById('counting-line').value = config.counting_line_position;
+                
+                updateLinePositionText();
+                
+            } catch (error) {
+                addLogEntry('Error loading configuration: ' + error.message, 'error');
+            }
+        }
+
+        // Get configuration from form
+        function getFormConfiguration() {
+            return {
+                video_source: document.getElementById('video-source').value === '0' ? 0 : document.getElementById('video-source').value,
+                show_gui: document.getElementById('show-gui').checked,
+                save_output: document.getElementById('save-output').checked,
+                min_contour_area: parseInt(document.getElementById('min-area').value),
+                counting_line_position: parseFloat(document.getElementById('counting-line').value)
+            };
+        }
+
+        // Update configuration display
+        function updateConfigDisplay(config) {
+            const configDisplay = document.getElementById('config-display');
+            configDisplay.innerHTML = `
+                <div class="col-md-6">
+                    <small class="text-muted">Video Source:</small><br>
+                    <strong>${config.video_source}</strong>
+                </div>
+                <div class="col-md-6">
+                    <small class="text-muted">Min Detection Area:</small><br>
+                    <strong>${config.min_contour_area} pixels</strong>
+                </div>
+                <div class="col-md-6">
+                    <small class="text-muted">GUI Display:</small><br>
+                    <strong>${config.show_gui ? 'Enabled' : 'Disabled'}</strong>
+                </div>
+                <div class="col-md-6">
+                    <small class="text-muted">Save Output:</small><br>
+                    <strong>${config.save_output ? 'Enabled' : 'Disabled'}</strong>
+                </div>
+            `;
+        }
+
+        // Update line position text
+        function updateLinePositionText() {
+            const value = document.getElementById('counting-line').value;
+            document.getElementById('line-position-text').textContent = Math.round(value * 100) + '%';
+        }
+
+        // Add log entry
+        function addLogEntry(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            logEntry.innerHTML = `<span class="log-time">[${timestamp}]</span> ${message}`;
+            
+            logsContainer.appendChild(logEntry);
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+
+        // Clear logs
+        function clearLogs() {
+            logsContainer.innerHTML = '<div class="log-entry">Logs cleared.</div>';
+        }
+    </script>
+</body>
+</html>
